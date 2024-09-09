@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
+import yfinance as yf
 from supabase_client import get_from_supabase
-from config import SUPABASE_URL, HEADERS
 
 get_all_stocks_bp = Blueprint('get_all_stocks', __name__)
 
@@ -40,30 +40,27 @@ def get_all_stocks():
         quantity = stock.get('quantity')
         average_price = stock.get('average_price')
 
-        # Get current stock price from the database
+        # Fetch current price and company name using yfinance
+        try:
+            ticker = yf.Ticker(stock_symbol)
+            stock_info = ticker.history(period="1d")
+            current_price = stock_info['Close'].iloc[0] if not stock_info.empty else None
+            company_name = ticker.info['shortName'] if 'shortName' in ticker.info else stock_symbol  # Get company name
+        except Exception as e:
+            return jsonify({"error": f"Failed to fetch data for {stock_symbol}: {str(e)}"}), 500
 
-
-        current_value = quantity * average_price
+        # Calculate current value and return
+        current_value = quantity * current_price if current_price else 0
+        percentage_return = ((current_price - average_price) / average_price * 100) if current_price else 0
 
         owned_stocks.append({
             "stock_symbol": stock_symbol,
             "quantity": quantity,
             "average_price": average_price,
-            "value" : current_value
-
+            "current_price": current_price,
+            "value": current_value,
+            "return": f"{percentage_return:.2f}%",  # Return as percentage
+            "company_name": company_name  # Add company name to response
         })
 
     return jsonify({"owned_stocks": owned_stocks})
-
-def get_current_stock_price(stock_symbol):
-    # Fetch current stock price from the database
-    response = get_from_supabase('stock_prices', params={'stock_symbol': f'eq.{stock_symbol}'})
-    if response.status_code != 200:
-        print(f"Error fetching stock price for {stock_symbol}: {response.json()}")
-        return None
-
-    price_data = response.json()
-    if price_data:
-        return price_data[0].get('current_price')
-
-    return None
