@@ -11,16 +11,24 @@ def get_portfolio_history():
     if not portfolio_id:
         return jsonify({'error': 'Missing portfolio_id'}), 400
 
-    # Prepare the parameters for the request
+    # Prepare query parameters for Supabase
     params = {
-        'portfolio_id': f'eq.{portfolio_id}',
-        'order': 'recorded_at.asc'
+        'portfolio_id': f'eq.{portfolio_id}',  # Filter based on portfolio_id
+        'order': 'created_at.asc'  # Sort by created_at in ascending order
     }
 
-    # Fetch historical data from portfolio_history table
-    response = get_from_supabase('portfolio_history', params=params)
+    # Fetch historical data from portfolio_returns table
+    response = get_from_supabase('portfolio_returns', params=params)
 
+    # Ensure response is valid and can be converted to JSON
     if response.status_code != 200:
         return jsonify({'error': 'Failed to fetch portfolio history'}), response.status_code
 
-    return jsonify(response.json())
+    # Ensure the response can be parsed to JSON
+    try:
+        data = response.json()  # Parse the JSON data from the response
+    except ValueError:
+        return jsonify({'error': 'Invalid JSON response from Supabase'}), 500
+
+    # Return the parsed data
+    return jsonify(data)

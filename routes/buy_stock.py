@@ -49,6 +49,7 @@ def buy_stock():
     stock_response = get_from_supabase(f"portfolio_stocks?portfolio_id=eq.{portfolio_id}&stock_symbol=eq.{stock_symbol}")
     stock_data = stock_response.json()
 
+    # In the buy_stock route, after calculating the new average price and quantity:
     if stock_data:
         # Update the stock entry if it already exists
         stock_entry = stock_data[0]
@@ -57,11 +58,12 @@ def buy_stock():
 
         new_quantity = existing_quantity + quantity
         new_avg_price = ((existing_avg_price * existing_quantity) + (current_price * quantity)) / new_quantity
+        new_total_investment = new_quantity * new_avg_price  # Calculate total investment based on updated values
 
         response = patch_to_supabase(f"portfolio_stocks?portfolio_id=eq.{portfolio_id}&stock_symbol=eq.{stock_symbol}", {
             "quantity": new_quantity,
             "average_price": new_avg_price,
-            # Do not manually update total_investment if it's a generated column
+            "total_investment": new_total_investment  # Set the new total investment
         })
 
         if response.status_code != 204:
@@ -70,12 +72,13 @@ def buy_stock():
 
     else:
         # Insert a new stock entry if it doesn't exist
+        total_investment = quantity * current_price  # For new stock, total investment is quantity * current price
         response = post_to_supabase("portfolio_stocks", {
             "portfolio_id": portfolio_id,
             "stock_symbol": stock_symbol,
             "quantity": quantity,
             "average_price": current_price,
-            # Do not manually insert total_investment if it's a generated column
+            "total_investment": total_investment  # Set the total investment
         })
 
         if response.status_code != 201:
@@ -114,18 +117,18 @@ def update_portfolio_total_value(portfolio_id):
     portfolio_data = portfolio_response.json()[0]
     cash_balance = portfolio_data.get('cash_balance', 0)
 
-    # Fetch all stocks in the portfolio
+    # Fetch the total investment in stocks
     stock_response = get_from_supabase(f"portfolio_stocks?portfolio_id=eq.{portfolio_id}")
     stocks = stock_response.json()
 
-    # Calculate the total stock value based on the total_investment field
-    # Ensure that 'None' values are replaced with 0
-    total_stock_value = sum(stock.get('total_investment', 0) or 0 for stock in stocks)
+    # Calculate total stock value, handling NoneType
+    total_stock_value = sum(stock.get('total_investment', 0) or 0 for stock in stocks if stock.get('quantity', 0) > 0)
 
-    # The total value of the portfolio is the cash balance + total stock investments
+    # Calculate the total value (cash balance + total stock investments)
     total_value = cash_balance + total_stock_value
 
     # Update the portfolio with the new total value
-    patch_to_supabase(f"portfolios?portfolio_id=eq.{portfolio_id}", {"total_value": total_value})
+    patch_response = patch_to_supabase(f"portfolios?portfolio_id=eq.{portfolio_id}", {"total_value": total_value})
+    if patch_response.status_code != 204:
+        logging.error(f"Failed to update portfolio total value.")
 
-    logging.debug(f"Updated portfolio {portfolio_id} total value to {total_value}")
