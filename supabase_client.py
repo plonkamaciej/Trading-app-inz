@@ -8,7 +8,9 @@ def get_from_supabase(endpoint, params=None):
 
 def post_to_supabase(endpoint, data):
     url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
-    response = requests.post(url, headers=HEADERS, json=data)  # Correctly pass the data as JSON
+    response = requests.post(url, headers=HEADERS, json=data)
+    print(f"Odpowiedź z Supabase (status: {response.status_code}):")
+    print(f"Treść: {response.text}")
     return response
 
 def patch_to_supabase(endpoint, data):

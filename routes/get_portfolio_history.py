@@ -30,5 +30,9 @@ def get_portfolio_history():
     except ValueError:
         return jsonify({'error': 'Invalid JSON response from Supabase'}), 500
 
+    # Check if data is empty and return a 404 if no records are found
+    if not data:
+        return jsonify({'error': 'No portfolio history found for the given portfolio_id'}), 404
+
     # Return the parsed data
-    return jsonify(data)
+    return jsonify(data), 200
