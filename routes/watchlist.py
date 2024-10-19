@@ -112,19 +112,26 @@ def add_to_watchlist():
         if watchlist_create_response.status_code != 201:
             print(f"Błąd podczas tworzenia watchlisty: {watchlist_create_response.status_code}, {watchlist_create_response.text}")
             return jsonify({"error": "Nie udało się utworzyć watchlisty"}), 500
-        watchlist_id = watchlist_create_response.json()[0]['watchlist_id']
+        
+        # Pobierz nowo utworzoną watchlistę
+        watchlist_response = get_from_supabase('watchlists', {'user_id': f'eq.{user_id}'})
+        if watchlist_response.status_code != 200 or not watchlist_response.json():
+            print(f"Błąd podczas pobierania nowo utworzonej watchlisty: {watchlist_response.status_code}, {watchlist_response.text}")
+            return jsonify({"error": "Nie udało się pobrać nowo utworzonej watchlisty"}), 500
+        watchlist_id = watchlist_response.json()[0]['watchlist_id']
     else:
         watchlist_id = watchlists[0]['watchlist_id']
 
     print(f"ID watchlisty: {watchlist_id}")
 
-    # Sprawdź, czy akcja już istnieje w liście obserwowanych
+    # Sprawdź, czy akcja już istnieje w liście obserwowanych tego użytkownika
     existing = get_from_supabase('watchlist_stocks', {
         'watchlist_id': f'eq.{watchlist_id}',
         'stock_symbol': f'eq.{stock_symbol}'
     })
     
     if existing.json():
+        print(f"Akcja {stock_symbol} już jest na liście obserwowanych użytkownika {user_id}")
         return jsonify({"message": "Akcja już jest na liście obserwowanych"}), 200
 
     # Dodaj akcję do listy obserwowanych
@@ -132,14 +139,15 @@ def add_to_watchlist():
         'watchlist_id': watchlist_id,
         'stock_symbol': stock_symbol
     }
+    
     response = post_to_supabase('watchlist_stocks', new_stock)
     
-    if response.status_code != 201:
+    if response.status_code == 201:
+        print(f"Akcja {stock_symbol} dodana do watchlisty użytkownika {user_id}")
+        return jsonify({"message": "Akcja dodana do listy obserwowanych"}), 201
+    else:
         print(f"Błąd podczas dodawania do watchlisty: {response.status_code}, {response.text}")
         return jsonify({"error": "Nie udało się dodać akcji do listy obserwowanych"}), 500
-
-    print(f"Akcja {stock_symbol} dodana do watchlisty")
-    return jsonify({"message": "Akcja dodana do listy obserwowanych"}), 201
 
 @watchlist_bp.route('/watchlist/remove', methods=['DELETE'])
 def remove_from_watchlist():

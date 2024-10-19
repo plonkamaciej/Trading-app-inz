@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify
 from supabase_client import get_from_supabase, patch_to_supabase, post_to_supabase
 import yfinance as yf
 import logging
+from update_returns import update_portfolio
+from update_single_portfolio import update_single_portfolio
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +104,7 @@ def buy_stock():
         return jsonify({"error": "Nie udało się zaktualizować stanu akcji", "details": response.json()}), response.status_code
 
     # Zaktualizuj całkowitą wartość portfela
-    update_portfolio_total_value(portfolio_id)
+    update_portfolio({"portfolio_id": portfolio_id}, [])
 
     # Zarejestruj transakcję
     trade_response = post_to_supabase("trades", {
@@ -115,10 +117,14 @@ def buy_stock():
     if trade_response.status_code != 201:
         return jsonify({"error": "Nie udało się zarejestrować transakcji", "details": trade_response.json()}), trade_response.status_code
 
+    # Aktualizuj wartość portfela
+    updated_value = update_single_portfolio(portfolio_id)
+
     return jsonify({
         "message": f"Kupiono akcje {stock_symbol} za ${amount:.2f}",
         "quantity_bought": quantity_to_buy,
-        "new_cash_balance": new_cash_balance
+        "new_cash_balance": new_cash_balance,
+        "updated_portfolio_value": updated_value
     })
 
 def update_portfolio_total_value(portfolio_id):

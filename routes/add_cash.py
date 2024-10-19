@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify
 from supabase_client import patch_to_supabase, get_from_supabase, post_to_supabase
 from config import TEST_PORTFOLIO_ID
 from datetime import datetime
+from update_returns import update_portfolio
+from update_single_portfolio import update_single_portfolio
 
 add_cash_bp = Blueprint('add_cash', __name__)
 
@@ -47,8 +49,13 @@ def add_cash():
         print(f"Transaction Insert Failed: {transaction_response.json()}")
         return jsonify({"error": "Failed to log deposit transaction", "details": transaction_response.json()}), transaction_response.status_code
 
+    # Aktualizuj wartość portfela
+    updated_value = update_single_portfolio(portfolio_id)
+    print(f"Updated portfolio value: {updated_value}")
+
     return jsonify({
         "message": "Cash added successfully",
         "new_cash_balance": new_cash_balance,
-        "transaction_id": transaction_response.json().get('transaction_id')
+        "transaction_id": transaction_response.json().get('transaction_id'),
+        "updated_portfolio_value": updated_value
     })

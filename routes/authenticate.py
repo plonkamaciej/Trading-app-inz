@@ -90,3 +90,69 @@ def authenticate():
     except Exception as e:
         logging.error(f"Unexpected error occurred: {e}")
         return jsonify({"error": "An unexpected error occurred"}), 500
+
+@authenticate_bp.route('/signup', methods=['POST'])
+def signup():
+    try:
+        # Pobierz dane z żądania
+        data = request.json
+        email = data.get('email')
+        password = data.get('password')
+
+        # Walidacja danych żądania
+        if not email or not password:
+            return jsonify({"error": "Email i hasło są wymagane"}), 400
+
+        # Zarejestruj użytkownika w Supabase
+        signup_url = f"{SUPABASE_URL}/auth/v1/signup"
+        signup_response = requests.post(signup_url, json={"email": email, "password": password}, headers=HEADERS)
+
+        # Sprawdź, czy rejestracja się powiodła
+        if signup_response.status_code != 200:
+            logging.error("Rejestracja nie powiodła się, kod statusu %s", signup_response.status_code)
+            return jsonify({"error": "Rejestracja nie powiodła się", "details": signup_response.json()}), signup_response.status_code
+
+        # Parsuj dane użytkownika z odpowiedzi rejestracji
+        user_data = signup_response.json()
+        user_id = user_data.get('user', {}).get('id')
+
+        if not user_id:
+            logging.error("Nie udało się pobrać ID użytkownika z odpowiedzi rejestracji")
+            return jsonify({"error": "Nie udało się pobrać ID użytkownika"}), 500
+
+        logging.debug(f"Zarejestrowano użytkownika o ID: {user_id}")
+
+        # Utwórz nowe portfolio dla użytkownika
+        new_portfolio_response = post_to_supabase('portfolios', data={
+            'user_id': user_id,
+            'cash_balance': 0.00  # Ustaw początkową wartość portfolio
+        })
+
+        # Sprawdź, czy tworzenie portfolio się powiodło
+        if new_portfolio_response.status_code != 201:
+            logging.error("Nie udało się utworzyć portfolio, kod statusu %s", new_portfolio_response.status_code)
+            return jsonify({"error": "Nie udało się utworzyć portfolio", "details": new_portfolio_response.json()}), new_portfolio_response.status_code
+
+        # Pobierz nowo utworzone portfolio
+        portfolio_response = get_from_supabase('portfolios', params={'user_id': f'eq.{user_id}'})
+        if portfolio_response.status_code != 200 or not portfolio_response.json():
+            logging.error("Nie udało się pobrać nowo utworzonego portfolio")
+            return jsonify({"error": "Nie udało się pobrać nowo utworzonego portfolio"}), 500
+
+        portfolio_id = portfolio_response.json()[0]['portfolio_id']
+        logging.debug(f"Utworzono nowe portfolio o ID: {portfolio_id}")
+
+        # Zwróć informacje o użytkowniku i portfolio w odpowiedzi
+        return jsonify({
+            "user_id": user_id,
+            "portfolio_id": portfolio_id,
+            "email": user_data.get('user', {}).get('email'),
+            "access_token": user_data.get('access_token')
+        })
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Wystąpił błąd RequestException: {e}")
+        return jsonify({"error": "Wystąpił błąd podczas procesu rejestracji"}), 500
+    except Exception as e:
+        logging.error(f"Wystąpił nieoczekiwany błąd: {e}")
+        return jsonify({"error": "Wystąpił nieoczekiwany błąd"}), 500
