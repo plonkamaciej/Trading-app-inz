@@ -5,7 +5,7 @@ services:
     build:
       dockerfile: Dockerfile.frontend
     ports:
-      - "3000:3000"
+      - "4321:4321"
 
   backend:
     build:

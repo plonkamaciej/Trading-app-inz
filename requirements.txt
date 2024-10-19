@@ -1,4 +1,6 @@
 flask
+flask_cors
 requests
 yfinance
 gunicorn
+python-dotenv
