@@ -1,6 +1,7 @@
-flask
-flask_cors
-requests
-yfinance
-gunicorn
-python-dotenv
+Flask==3.0.3
+Werkzeug==3.0.4
+Flask-Cors==4.0.1
+requests==2.32.3
+yfinance==0.2.43
+gunicorn==20.1.0
+python-dotenv==1.0.1
